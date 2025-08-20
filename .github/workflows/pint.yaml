@@ -1,0 +1,49 @@
+name: PHP Linting (Pint)
+
+on:
+  pull_request:
+    branches: [ develop, testing, main ]
+    paths:
+      - '**.php'
+
+permissions:
+  contents: write
+
+jobs:
+  phplint:
+    name: Run style format (PHP)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, imagick, fileinfo
+          coverage: none
+
+      - name: Install dependencies
+        run: |
+          composer install -n --prefer-dist
+      - name: List Installed Dependencies
+        run: composer show -D
+
+      - name: Setup Laravel
+        run: |
+          cp .env.ci .env
+          php artisan key:generate
+
+      - name: Cache Result cache
+        uses: actions/cache@v3
+        with:
+          path: /home/runner/.cache/phplint/files
+          key: "result-cache-${{ github.run_id }}"
+          restore-keys: |
+            result-cache-
+
+      - name: Run PHP Linting (Pint)
+        run: vendor/bin/pint --test -v --ansi
+        timeout-minutes: 1

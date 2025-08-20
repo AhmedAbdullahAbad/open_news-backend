@@ -1,0 +1,67 @@
+name: Testing Deploy
+
+on:
+  push:
+    branches:
+      - testing
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      PHP_VERSION: 8.3
+      PHP_EXTENSIONS: mbstring, intl, json, xdebug, opcache, exif, gd, pgsql, redis
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          ini-values: post_max_size=256M, log_errors=1
+          tools: composer
+          coverage: none
+
+      - name: Install Composer dependenciesAdd commentMore actions
+        run: composer install --no-interaction --no-ansi --no-progress --no-suggest --prefer-dist --optimize-autoloader
+
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: "github.com,${{ secrets.DEV_SERVER_IP }}"
+          config: |
+            Host ${{ secrets.DEV_SERVER_IP }}
+                HostKeyAlgorithms +ssh-rsa,ssh-dss
+                PubkeyAcceptedKeyTypes +ssh-rsa,ssh-dss
+
+      # Test SSH Connection
+      - name: Test SSH Connection
+        run: |
+          ssh -o StrictHostKeyChecking=no -p ${{ secrets.SERVER_PORT }} \
+           ${{ secrets.DEV_SERVER_USER }}@${{ secrets.DEV_SERVER_IP }} \
+           echo "SSH connection successful"
+      
+      - name: Compress vendor folder
+        run: |
+          tar -czf vendor.tar.gz ./vendor/
+          ls -lh vendor.tar.gz  # Verify size
+
+      - name: Copy vendor to server
+        run: |
+          scp -P ${{ secrets.SERVER_PORT }} ./vendor.tar.gz  \
+          ${{ secrets.DEV_SERVER_USER }}@${{ secrets.DEV_SERVER_IP }}:/home/${{ secrets.DEV_SERVER_USER }}/brooder369/testing/
+
+      # Deploy Using Envoy
+      - name: Deploy using Envoy
+        run: |
+          php vendor/bin/envoy run deploy \
+            --branch=testing \
+            --gh_user=${{ secrets.GH_USER }} \
+            --gh_secret=${{ secrets.GH_SECRET }} \
+            --server_ip=${{ secrets.DEV_SERVER_IP }} \
+            --server_user=${{ secrets.DEV_SERVER_USER }} \
+            --server_port=${{ secrets.SERVER_PORT }}
