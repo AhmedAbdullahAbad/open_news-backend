@@ -1,0 +1,8 @@
+includes:
+    - phpstan.neon
+
+parameters:
+    tmpDir: /home/runner/.cache/phpstan/files
+    parallel:
+        maximumNumberOfProcesses: 4
+        processTimeout: 60.0
