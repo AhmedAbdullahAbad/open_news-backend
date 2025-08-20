@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+
+## Utility functions
+
+function bye() {
+  log "hook end"
+  exit $1
+}
+
+function log() {
+  echo -e "pre-commit: $1"
+}
+
+function header() {
+  echo -e "____________________"
+  echo -e "| $1 |:\n\n"
+}
+
+function footer() {
+  echo -e "\n____________________\n"
+}
+
+## Hook start
+
+log "hook start:"
+
+## List modified/added files
+
+FILES=`git status --porcelain | grep -e '^[AM]\(.*\).php$' | cut -c 3- | tr '\n' ' '`
+
+## If the committed files doesn't contain PHP files, exit
+
+if [ -z "$FILES" ]
+then
+      log "No PHP file found to fix.\n Exiting.."
+      bye 0
+fi
+
+## Preparing pint config and command
+
+PHP_CS_FIXER_BINARY="vendor/bin/pint"
+
+PHP_CS_FIXER_CONFIG=`ls -a | grep pint.json | grep -v 'cache' -m 1`
+
+PHP_CS_FIXER_COMMAND="$PHP_CS_FIXER_BINARY --config=$PHP_CS_FIXER_CONFIG $FILES"
+
+header "pint Output"
+
+## Executing pint
+
+MODIFIED_FILES=`$PHP_CS_FIXER_COMMAND  | tr ' ' '\n' | grep php`
+
+footer
+
+## pint executed without any modification, exit
+
+if [ -z "$MODIFIED_FILES" ]
+then
+  log "All good. No file has been touched."
+  bye 0
+fi
+
+## Output more information about what happened
+
+MODIFIED_FILES_COUNT=$(((`echo $MODIFIED_FILES | grep -o ' ' | wc -l`) + 1))
+
+header "($MODIFIED_FILES_COUNT) modified files"
+
+echo $MODIFIED_FILES
+
+footer
+
+log "Review the changes then commit again."
+
+bye 1
+

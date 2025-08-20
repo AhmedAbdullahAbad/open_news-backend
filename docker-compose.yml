@@ -1,0 +1,87 @@
+version: '3.9'
+
+services:
+    open_news-app:
+        image: nginx:alpine
+        restart: unless-stopped
+        tty: true
+        ports:
+            - "80:80"
+            - "443:443"
+        volumes:
+            - ./:/var/www/html/open_news-app
+            - ./images/nginx/conf.d/:/etc/nginx/conf.d/
+        networks:
+            - app-network
+        depends_on:
+            - app
+
+    app:
+        container_name: open_news
+        build:
+            context: images/php
+        networks:
+            - app-network
+        working_dir: /var/www/html/open_news-app
+        volumes:
+            - ./:/var/www/html/open_news-app
+            - ./images/php/local.ini:/usr/local/etc/php/php.ini
+        depends_on:
+            - postgres
+            - pgadmin
+            - redis
+
+    postgres:
+        image: postgres:alpine
+        container_name: postgres-app
+        restart: always
+        logging:
+            driver: 'none'
+        volumes:
+            - pgsql-data:/var/lib/postgresql/data
+        environment:
+            POSTGRES_USER: root
+            POSTGRES_PASSWORD: password
+            POSTGRES_DB: open_news_app_db
+        networks:
+            - app-network
+        ports:
+            - 5432:5432
+
+    pgadmin:
+        image: dpage/pgadmin4:latest
+        container_name: pgadmin_container
+        restart: always
+        ports:
+            - "5050:80"
+        environment:
+            PGADMIN_DEFAULT_EMAIL: database@open_news.com
+            PGADMIN_DEFAULT_PASSWORD: password
+        volumes:
+            - pgadmin-data:/var/lib/pgadmin
+        networks:
+            - app-network
+        depends_on:
+            - postgres
+
+    redis:
+        image: redis:alpine
+        container_name: redis-app
+        logging:
+          driver: 'none'
+        ports:
+          - 6379:6379
+        volumes:
+          - redis-data:/data
+        networks:
+          - app-network
+
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  pgsql-data:
+  pgadmin-data:
+  redis-data:
