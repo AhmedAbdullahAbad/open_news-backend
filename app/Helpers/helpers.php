@@ -18,3 +18,15 @@ if (! function_exists('getCurrentAdmin')) {
         return Auth::guard('admin-api')->user();
     }
 }
+
+if (! function_exists('getAuthenticatable')) {
+
+    function getAuthenticatable(): ?Authenticatable
+    {
+        if (isAuthenticatedAdmin()) {
+            return getCurrentAdmin();
+        }
+
+        return null;
+    }
+}
